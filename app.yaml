@@ -1,0 +1,10 @@
+application: ecohackfirez
+version: hack
+runtime: python27
+threadsafe: true
+api_version: 1
+
+handlers:
+
+- url: /api/.*
+  script: api.application
