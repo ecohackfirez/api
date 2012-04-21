@@ -1,5 +1,3 @@
-# API
-
 # WebGL API
 
 This API surfaces data for use in the WebGL visualization. 
