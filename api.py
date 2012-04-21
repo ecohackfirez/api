@@ -27,16 +27,24 @@ class ApiHandler(webapp2.RequestHandler):
         """
         mag = self.request.get('mag', 'brightness')
         count = self.request.get_range('count', default=10)
+        start_date = self.request.get('start_date')
+        end_date = self.request.get('end_date')
+
+        memcache.flush_all()
         
         key = 'mag=%s,count=%s' % (mag, count)
         value = memcache.get(key)
+        
+
 
         if not value:
-            sql = "SELECT lat, lon, %s, date_str FROM fires limit %s" % (mag, count)
+
+            sql = "SELECT lat, lon, count(date_str) AS cnt FROM (SELECT DISTINCT lat, lon, date_str FROM fires WHERE date_str > '%s' AND date_str < '%s') AS t1 GROUP BY lat, lon ORDER BY cnt DESC LIMIT %s" % (start_date, end_date, count)
+            # sql = "SELECT lat, lon, %s, date_str FROM fires limit %s" % (mag, count)
             url = 'http://ecohackfirez.cartodb.com/api/v2/sql?%s' % urllib.urlencode(dict(q=sql))
             content = json.loads(urlfetch.fetch(url, deadline=60).content) # TODO: retry
             if not content.has_key('error'):
-                results = map(lambda row: [row['date_str'], [row['lat'], row['lon'], row[mag]]], content['rows'])
+                results = map(lambda row: ['%s,%s' % (row['lat'], row['lon']), [row['lat'], row['lon'], row['cnt']]], content['rows'])
 
                 aggregated = defaultdict(list) # By date              
 
@@ -45,7 +53,7 @@ class ApiHandler(webapp2.RequestHandler):
 
                 values = []
                 for key in aggregated.keys():
-                    values.append(dict(date=key, values=list(itertools.chain(*aggregated[key]))))
+                    values.append(dict(point=key, count=list(itertools.chain(*aggregated[key]))))
 
                 value = json.dumps(values)
                 memcache.add(key, value)
@@ -54,6 +62,7 @@ class ApiHandler(webapp2.RequestHandler):
             value = []
 
         self.response.headers["Content-Type"] = "application/json"
+        self.response.headers["Access-Control-Allow-Origin"] = "*"
         self.response.out.write(value)
 
 application = webapp2.WSGIApplication(
