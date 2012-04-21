@@ -4,11 +4,14 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 """
 
 import json
+import itertools
 import logging
 import os
 import random
 import urllib
 import webapp2
+
+from collections import defaultdict
 
 from google.appengine.api import memcache
 from google.appengine.api import urlfetch
@@ -33,7 +36,17 @@ class ApiHandler(webapp2.RequestHandler):
             url = 'http://ecohackfirez.cartodb.com/api/v2/sql?%s' % urllib.urlencode(dict(q=sql))
             content = json.loads(urlfetch.fetch(url, deadline=60).content) # TODO: retry
             if not content.has_key('error'):
-                value = json.dumps(map(lambda row: [row['date'], [row['lat'], row['lon'], row[mag]]], content['rows']))
+                results = map(lambda row: [row['date'], [row['lat'], row['lon'], row[mag]]], content['rows'])
+                aggregated = defaultdict(list) # By date              
+
+                for row in results:
+                    aggregated[row[0]].append(row[1])
+
+                values = []
+                for key in aggregated.keys():
+                    values.append(key)
+                    values.append(list(itertools.chain(*aggregated[key])))
+                value = json.dumps(values)
                 memcache.add(key, value)
         
         if not value:
