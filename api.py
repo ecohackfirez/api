@@ -32,11 +32,12 @@ class ApiHandler(webapp2.RequestHandler):
         value = memcache.get(key)
 
         if not value:
-            sql = "SELECT lat, lon, %s, date FROM fires limit %s" % (mag, count)
+            sql = "SELECT lat, lon, %s, date_str FROM fires limit %s" % (mag, count)
             url = 'http://ecohackfirez.cartodb.com/api/v2/sql?%s' % urllib.urlencode(dict(q=sql))
             content = json.loads(urlfetch.fetch(url, deadline=60).content) # TODO: retry
             if not content.has_key('error'):
-                results = map(lambda row: [row['date'], [row['lat'], row['lon'], row[mag]]], content['rows'])
+                results = map(lambda row: [row['date_str'], [row['lat'], row['lon'], row[mag]]], content['rows'])
+
                 aggregated = defaultdict(list) # By date              
 
                 for row in results:
@@ -44,8 +45,8 @@ class ApiHandler(webapp2.RequestHandler):
 
                 values = []
                 for key in aggregated.keys():
-                    values.append(key)
-                    values.append(list(itertools.chain(*aggregated[key])))
+                    values.append({key: list(itertools.chain(*aggregated[key]))})
+
                 value = json.dumps(values)
                 memcache.add(key, value)
         
