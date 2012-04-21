@@ -45,7 +45,7 @@ class ApiHandler(webapp2.RequestHandler):
 
                 values = []
                 for key in aggregated.keys():
-                    values.append({key: list(itertools.chain(*aggregated[key]))})
+                    values.append(dict(date=key, values=list(itertools.chain(*aggregated[key]))))
 
                 value = json.dumps(values)
                 memcache.add(key, value)
